@@ -12,7 +12,7 @@ struct ContentView: View {
     @State private var name = ""
     // Doesn't need to be marked with @State as it's a constant and won't change
     let students = ["Harry", "Ron", "Hermione", "Neville", "Cho"]
-    // Can change, so needs to be marked as @State
+    // Can change, so needs to be marked as @State. @State property wrappers should be private.
     @State private var selectedStudent = "Harry"
 
     var body: some View {
@@ -47,20 +47,95 @@ struct ContentView: View {
 
 struct ContentView: View {
     @State private var checkAmount = 0.0
-    @State private var numberOfPeople = 2
+    @State private var numberOfPeople = 0
     @State private var tipPercentage = 20
+    @FocusState private var amountIsFocused: Bool
     let tipPercentages = [10, 15, 20, 25, 30, 0]
 
+    var totalPerPerson: Double {
+        let peopleCount = Double(numberOfPeople + 2)
+        let tipSelection = Double(tipPercentage)
+        let tipValue = checkAmount / 100 * tipSelection
+        let grandTotal = checkAmount + tipValue
+        let amountPerPerson = grandTotal / peopleCount
+
+        return amountPerPerson
+    }
+
+    var checkTotal: Double {
+        let tipSelection = Double(tipPercentage)
+        let tipValue = checkAmount / 100 * tipSelection
+        let grandTotal = checkAmount + tipValue
+
+        return grandTotal
+    }
+
+    var currencyCode: FloatingPointFormatStyle<Double>.Currency {
+        return .currency(code: Locale.current.currencyCode ?? "USD")
+    }
+
     var body: some View {
-        Form {
-            Section {
-                // Express the currency either in the user's local currency (baased
-                // on Settings > General > Language and Region, if set) or in USD
-                TextField("Amount", value: $checkAmount, format: .currency(code: Locale.current.currencyCode ?? "USD"))
-                    .keyboardType(.decimalPad)
+        NavigationView {
+            Form {
+                Section {
+                    // Express the currency either in the user's local currency (baased
+                    // on Settings > General > Language and Region, if set) or in USD
+                    TextField("Amount",
+                              value: $checkAmount,
+                              format: currencyCode)
+                        .keyboardType(.decimalPad)
+                        .focused($amountIsFocused)
+
+                    /*
+                     This is declarative user interface design. As with any declarative paradigm,
+                     we state what we want without saying how it should be done (which would, in
+                     contrast, be imperative userinterface design).
+                     */
+                    Picker("Number of people", selection: $numberOfPeople) {
+                        ForEach(2..<100) {
+                            Text("\($0) people")
+                        }
+                    }
+                }
+
+                /*
+                 Using multiple trailing closures here; the first one specifies the
+                 body of the section, the second one the header.
+                 */
+                Section {
+                    Picker("Tip percentage", selection: $tipPercentage) {
+                        ForEach(tipPercentages, id: \.self) {
+                            Text($0, format: .percent)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("How much tip do you want to leave?")
+                }
+
+                Section {
+                    Text(checkTotal,
+                              format: .currency(code: Locale.current.currencyCode ?? "USD"))
+                } header: {
+                    Text("Total amount of check")
+                }
+
+                Section {
+                    Text(totalPerPerson,
+                         format: currencyCode)
+                } header: {
+                    Text("Amount per person")
+                }
             }
-            Section {
-                Text(checkAmount, format: .currency(code: Locale.current.currencyCode ?? "USD"))
+            .navigationTitle("WeSplit")
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+
+                    Button("Done") {
+                        amountIsFocused = false
+                    }
+                }
             }
         }
     }
